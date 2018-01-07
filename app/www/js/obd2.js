@@ -126,7 +126,7 @@ function watchSoC(device, car, soc, interval, errorinterval) {
 
                                 if(DEBUG) $('#debugInfo').append(decoded + '<br>NEXT<br>');
                                 // send data to convertSoC function to retrieve the converted soc
-                                convertSoC(decoded, function(converted) {
+                                convertSoC(decoded, car, function(converted) {
                                     // parse and round to integer
                                     converted = parseInt(converted);
                                     if(converted >= 0 && converted <= 100) {
@@ -208,6 +208,15 @@ function watchSoC(device, car, soc, interval, errorinterval) {
     } else showMessage(translate('UNSUPPORTED_DEVICE', lng));
 }
 
+function nthIndex(str, pat, n){
+    var L= str.length, i= -1;
+    while(n-- && i++<L){
+        i= str.indexOf(pat, i);
+        if (i < 0) break;
+    }
+    return i;
+}
+
 /**
  * Function which converts the received, partial data from the car
  * NOTE: It collects the data as long as the data can be decoded to the soc value
@@ -216,30 +225,116 @@ function watchSoC(device, car, soc, interval, errorinterval) {
  * NOTE: As long as the data could not be converted, the function returns -1.
  * Otherwise the calculated soc will be returned in the callback
  * @param  {String}   data     the decoded (partial) data from the car
+ * @param  {String}   car      the car to calculate the soc
  * @param  {Function} callback callback function
  */
-function convertSoC(data, callback) {
+function convertSoC(data, car, callback) {
     // track the raw data
     RAWDATA += data;
+    // write data to debug log
+    // if(DEBUG)
+    writeLog(data);
     if(DEBUG) $('#debugData').append('RAW DATA: ' + data + '<br>');
+    // NOTE: Does this makes sense???
     if(BLOCKDATA) {
         BLOCKDATA += ' ' + data;
         if(DEBUG) $('#debugData').append('CONTINUE WITH BLOCK' + '<br>');
     }
+    BLOCKDATA += ' ' + data;    // NOTE: Why do we still need this space??
 
-    if(data && data.indexOf('4:') !== -1) {
-        if(DEBUG) $('#debugData').append('FOUND BEGINNING' + '<br>');
-        BLOCKDATA += data;
-    }
+    // calculation based on car
+    if(car === 'IONIQ_BEV' || car === 'SOUL_EV') {
+        if(data && data.indexOf('4:') !== -1) {
+            if(DEBUG) $('#debugData').append('FOUND BEGINNING' + '<br>');
+            BLOCKDATA += data;
+        }
 
-    if(data && data.indexOf('5:') !== -1) {
-        if(DEBUG) $('#debugData').append('FOUND END' + '<br>');
-        if(DEBUG) $('#debugData').append('DATA END: ' + BLOCKDATA + '<br>');
-        // cut out eventually spaces before or after BLOCKDATA
-        BLOCKDATA = BLOCKDATA.trim();
-        // 4: - last byte before 5: (new calculation removes spaces and concats them in pairs together to avoid wrong calculation)
-        callback(parseInt(BLOCKDATA.substr(BLOCKDATA.indexOf('4:') +2, BLOCKDATA.lastIndexOf(':') ).replace(/\s/g, '').match(/.{1,2}/g)[6], 16)/ 2);
-    } else callback(-1);
+        if(data && data.indexOf('5:') !== -1) {
+            if(DEBUG) $('#debugData').append('FOUND END' + '<br>');
+            if(DEBUG) $('#debugData').append('DATA END: ' + BLOCKDATA + '<br>');
+            // cut out eventually spaces before or after BLOCKDATA
+            BLOCKDATA = BLOCKDATA.trim();
+            // 4: - last byte before 5: (new calculation removes spaces and concats them in pairs together to avoid wrong calculation)
+            callback(parseInt(BLOCKDATA.substr(BLOCKDATA.indexOf('4:') +2, BLOCKDATA.lastIndexOf(':') ).replace(/\s/g, '').match(/.{1,2}/g)[6], 16)/ 2);
+        } else callback(-1);
+    } else if(car === 'IONIQ_HEV' || car === 'IONIQ_PHEV') {
+        // if(data && data.indexOf('1:') !== -1) {
+        //     if(DEBUG) $('#debugData').append('FOUND BEGINNING' + '<br>');
+        //     BLOCKDATA += data;
+        //     // cut out eventually spaces before or after BLOCKDATA
+        //     BLOCKDATA = BLOCKDATA.trim().replace(/\s/g, '');
+        //     if((BLOCKDATA.match(/1:/g) || []).length >= 6) {
+        //         if(DEBUG) $('#debugData').append('FOUND END' + '<br>');
+        //         if(DEBUG) $('#debugData').append('DATA END: ' + BLOCKDATA + '<br>');
+        //         // 6th block in 1:, first byte pair divided by 2
+        //         /*
+        //         NOTE: Currently the calculation here doesn't work correctly.
+        //         The soc (BMS) for the IONIQ Hybrid and IONIQ PlugIn Hybrid has
+        //         it's correct byte in the 6th block within the 1: segment.
+        //         Example: 0: 00 00 1: 00 00 1: 00 1: 00 1: 00 1: 00 1: 12 00
+        //         So the "12" is the byte what we are looking for.
+        //         Because all those data are coming asyncronously in partial blocks
+        //         with random length, we first need to determine the very beginning of
+        //         each new buffer for the command.
+        //         It's not sufficient, to just parse the 6th block of 1:, because it can vary
+        //         Example: after the successfull parse of 6th block, there exists more blocks
+        //         So it counts as new blocks and the 6th block then is not the 6th block of the
+        //         new command buffer. Instead, it's the 4th block or so. So we need to ensure
+        //         to find the very beginning of each buffer after each command and then search
+        //         for the 6th block. To do so, we maybe can search for a ">" which determines the end.
+        //         So we can collect data after the end, until we reached the 6th block.
+        //          */
+        //         callback(parseInt(BLOCKDATA.substr(nthIndex(BLOCKDATA, '1:', 6)+2, 2), 16) / 2);
+        //     } else {
+        //         if(DEBUG) $('#debugData').append('SEARCHING FOR MORE BLOCKS' + '<br>');
+        //     }
+        // } else callback(-1);
+
+        if(BLOCKDATA.indexOf('>') !== -1) {
+            if(DEBUG) $('#debugData').append('FOUND VERY END' + '<br>');
+            // BLOCKDATA += data;   // NOTE: it was appended before, wasn't it?!
+            // cut out eventually spaces before or after BLOCKDATA
+            BLOCKDATA = BLOCKDATA.substr(BLOCKDATA.indexOf('>').trim().replace(/\s/g, ''));
+            if((BLOCKDATA.match(/1:/g) || []).length >= 6) {
+                if(DEBUG) $('#debugData').append('FOUND END' + '<br>');
+                if(DEBUG) $('#debugData').append('DATA END: ' + BLOCKDATA + '<br>');
+                // 6th block in 1:, first byte pair divided by 2
+                /*
+                NOTE: Currently the calculation here doesn't work correctly.
+                The soc (BMS) for the IONIQ Hybrid and IONIQ PlugIn Hybrid has
+                it's correct byte in the 6th block within the 1: segment.
+                Example: 0: 00 00 1: 00 00 1: 00 1: 00 1: 00 1: 00 1: 12 00
+                So the "12" is the byte what we are looking for.
+                Because all those data are coming asyncronously in partial blocks
+                with random length, we first need to determine the very beginning of
+                each new buffer for the command.
+                It's not sufficient, to just parse the 6th block of 1:, because it can vary
+                Example: after the successfull parse of 6th block, there exists more blocks
+                So it counts as new blocks and the 6th block then is not the 6th block of the
+                new command buffer. Instead, it's the 4th block or so. So we need to ensure
+                to find the very beginning of each buffer after each command and then search
+                for the 6th block. To do so, we maybe can search for a ">" which determines the end.
+                So we can collect data after the end, until we reached the 6th block.
+                 */
+                callback(parseInt(BLOCKDATA.substr(nthIndex(BLOCKDATA, '1:', 6)+2, 2), 16) / 2);
+            } else {
+                if(DEBUG) $('#debugData').append('SEARCHING FOR MORE BLOCKS' + '<br>');
+            }
+        } else callback(-1);
+
+        // if(data && data.indexOf('2:') !== -1) {
+        //     // cut out eventually spaces before or after BLOCKDATA
+        //     BLOCKDATA = BLOCKDATA.trim().replace(/\s/g, '');
+        //     if((BLOCKDATA.match(/1:/g) || []).length >= 6) {
+        //         if(DEBUG) $('#debugData').append('FOUND END' + '<br>');
+        //         if(DEBUG) $('#debugData').append('DATA END: ' + BLOCKDATA + '<br>');
+        //         // 6th block in 1:, first byte pair divided by 2
+        //         callback(parseInt(BLOCKDATA.substr(nthIndex(BLOCKDATA, '1:', 6)+2, 2), 16) / 2);
+        //     } else {
+        //         if(DEBUG) $('#debugData').append('SEARCHING FOR MORE BLOCKS' + '<br>');
+        //     }
+        // } else callback(-1);
+    } else RAWDATA = BLOCKDATA = '';   // unsupported car, reset data to prevent overflow
 
     // trim and cut out spaces of raw data
     RAWDATA = RAWDATA.trim().replace(/\s/g, '');
@@ -299,7 +394,15 @@ function resetDongle(callback) {
                                                                 if(!err) {
                                                                     bluetooth.sendCommand('ATSTFF', function(err, sent) {
                                                                         if(!err) {
-                                                                            callbackHandler('RESET_SUCCESSFULL');
+                                                                            bluetooth.sendCommand('ATBRD45', function(err, sent) {
+                                                                                if(!err) {
+                                                                                    bluetooth.sendCommand('ATBRD23', function(err, sent) {
+                                                                                        if(!err) {
+                                                                                            callbackHandler('RESET_SUCCESSFULL');
+                                                                                        } else callbackHandler('BLUETOOTH_DATA_SENT_ERROR');
+                                                                                    });
+                                                                                } else callbackHandler('BLUETOOTH_DATA_SENT_ERROR');
+                                                                            });
                                                                         } else callbackHandler('BLUETOOTH_DATA_SENT_ERROR');
                                                                     });
                                                                 } else callbackHandler('BLUETOOTH_DATA_SENT_ERROR');

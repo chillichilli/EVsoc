@@ -15,6 +15,8 @@ function loadSettings() {
         notifySlider = document.getElementById('notifySlider'),
         device = document.getElementById('device'),
         deviceDiv = document.getElementById('deviceDiv'),
+        car = document.getElementById('car'),
+        carDiv = document.getElementById('carDiv'),
         polling = document.getElementById('polling'),
         pollingDiv = document.getElementById('pollingDiv'),
         sync = document.getElementById('sync'),
@@ -40,6 +42,11 @@ function loadSettings() {
         deviceDiv.className += ' is-dirty is-focused';
         device.value = config.deviceObj.name;
         device.setAttribute('data-val', config.deviceObj.id);
+    }
+    if(config.carObj) {
+        carDiv.className += ' is-dirty is-focused';
+        car.value = config.carObj.name;
+        car.setAttribute('data-val', config.carObj.id);
     }
     if(config.pollingObj) {
         pollingDiv.className += ' is-dirty is-focused';
@@ -83,7 +90,11 @@ function saveSettings() {
                 name: document.getElementById('language').value
             },
             lng: lng,
-            car: 'IONIQ',   // later it will supports more cars
+            carObj: {
+                id: document.getElementById('car').getAttribute('data-val'),
+                name: document.getElementById('car').value
+            },
+            car: document.getElementById('car').getAttribute('data-val'),
             telegram: getValue('telegram'),
             email: document.getElementById('email').value,
             push: false,

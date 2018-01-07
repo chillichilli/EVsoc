@@ -33,4 +33,5 @@
     <plugin name="cordova-plugin-geolocation" spec="~2.4.3" />
     <plugin name="uk.co.workingedge.phonegap.plugin.launchnavigator" spec="~4.0.7" />
     <plugin name="cordova-plugin-autostart" spec="~2.0.1" />
+    <plugin name="cordova-plugin-file" spec="^5.0.0" />
 </widget>
