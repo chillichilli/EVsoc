@@ -2,10 +2,10 @@
 <widget id="com.evnotify.app" version="1.1.8" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>EVNotify</name>
     <description>
-        EVNotify allows you to control your electric vehicle and let you notify when the specified preset state of charge has been achieved.
+        EVsoc allows you to control your electric vehicle and let you notify when the specified preset state of charge has been achieved.
     </description>
     <author email="info@evnotify.de" href="https://evnotify.de">
-        EVNotify
+        EVsoc
     </author>
     <content src="index.html" />
     <access origin="*" />
